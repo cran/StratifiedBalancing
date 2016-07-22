@@ -1,6 +1,7 @@
 
 
 stratadisc=function(Treatment,Outcome,Matrix){
+  if(ncol(Matrix) == 3)stop("Warning: Data matrix must contain at least 3 covariates and one outcome variable.")
   check=as.matrix(unique(Matrix[,Outcome]))
   if(nrow(check) > 2 & sum(check[,1]) != 1)stop("Warning: Output variable must be discrete for this function. For continuous outputs, please use stratacont().")
   a=ncol(Matrix)-1
@@ -9,20 +10,42 @@ stratadisc=function(Treatment,Outcome,Matrix){
     if(nrow(h) > 5)message("We advise using input variables with at most 5 categories.")
     if(nrow(h) > 5)dd=sprintf("Column %s contains more than 5 categories" , i)
     if(nrow(h) > 5)message(dd)
+    if(nrow(h) == 1)message("One or more variables is constant. This may cause problems in stratification.")
   }
-  g=stratifydisc(Treatment,Outcome,Matrix)
-  l=weightdisc(g)
+  g=try(stratifydisc(Treatment,Outcome,Matrix),TRUE)
+  if(class(g) == "try-error")stop("Stratification could not be completed. Strata are too sparsely populated or insufficient strata found. Please use function sensdisc() to perfrom a sensitivity analysis.")
+  if(class(g) != "try-error"){
+  if( nrow(g) <=1)message("Only one or less strata found in data. Function stratadisc() will only return the strata without calculating odds. We strongly recommend performing a snesitivity analysis by applying function sensdisc() before proceeding.")
+  if(nrow(g) <= 1){
+    return(g)
+    message("Stratification complete. We advise performing a sensitivity analysis using the sensdisc() function.")
+  }
+  if ( nrow(g) > 1) {
+    a=ncol(Matrix)-2
+    mmm=g[,-(1:a)]
+    t=sum(as.numeric(mmm[,5]))
+    t2=sum(as.numeric(Matrix[,Treatment]))
+    t=t/t2
+    if(t < 0.1){
+      message("Less than 10% percent of cases were matched. Function stratadisc() will only return the strata without calculating odds. We strongly recommend performing a snesitivity analysis by applying function sensdisc() before proceeding.")
+      return(g)
+    }
+    if ( t >= 0.1){
+      l=weightdisc(g)
   l3=summarydisc(g)
   dispdisc(g)
   k=l3
-  message("Stratification complete.")
+  message("Stratification complete. We advise performing a sensitivity analysis using the sensdisc() function.")
   print(l)
   return(k)
-
+    }
+  }
+  }
 }
 
 
 stratacont=function(Treatment,Outcome,Matrix){
+  if(ncol(Matrix) == 3)stop("Warning: Data matrix must contain at least 3 covariates and one outcome variable.")
   check=as.matrix(unique(Matrix[,Outcome]))
   if(nrow(check) <= 2 )stop("Warning: Output variable must be continuous for this function. For discrete outputs, please use stratadisc().")
   a=ncol(Matrix)-1
@@ -31,15 +54,37 @@ stratacont=function(Treatment,Outcome,Matrix){
     if(nrow(h) > 5)message("We advise using input variables with at most 5 categories.")
     if(nrow(h) > 5)dd=sprintf("Column %s contains more than 5 categories" , i)
     if(nrow(h) > 5)message(dd)
+    if(nrow(h) == 1)message("One or more variables is constant. This may cause problems in stratification.")
+
   }
-  g=stratifycont(Treatment,Outcome,Matrix)
+  g=try(stratifycont(Treatment,Outcome,Matrix),TRUE)
+  if(class(g) == "try-error")stop("Stratification could not be completed. Strata are too sparsely populated or insufficient strata found. Please use function senscont() to perfrom a sensitivity analysis.")
+  else{
+  if( nrow(g) <=1)message("Only one or less strata found in data. Function stratacont() will only return the strata without calculating odds. We strongly recommend performing a snesitivity analysis by applying function senscont() before proceeding.")
+  if(nrow(g) <= 1){
+    return(g)
+    message("Stratification complete. We advise performing a sensitivity analysis using the senscont() function.")
+  }
+  if(nrow(g) > 1){
+    a=Treatment + 3
+    t=sum(as.numeric(g[,a]))
+    t2=sum(as.numeric(Matrix[,Treatment]))
+    t=t/t2
+    if(t <= 0.1){
+      message("Less than 10% percent of cases were matched. Function stratacont() will only return the strata without calculating odds. We strongly recommend performing a snesitivity analysis by applying function senscont() before proceeding.")
+      return(g)
+    }
+    if(t > 0.1){
   l=weightcont(g)
   l3=summarycont(g)
   dispcont(g)
   k=l3
-  message("Stratification complete.")
+  message("Stratification complete. We advise performing a sensitivity analysis using the senscont() function.")
   print(l)
   return(k)
+    }
+  }
+  }
 }
 
 
@@ -132,9 +177,13 @@ stratifydisc=function(Treatment,Outcome,Matrix){
 
 
 weightdisc = function(mat){
+  if(nrow(mat) == 1)message("Only one strata matched in data, odds ratio may be meaningless on this case.")
+  cc=0
+  if(nrow(mat) == 1)cc=1
   cola=ncol(mat)
   colb=ncol(mat)-7
   mat=as.matrix(mat[,(colb:cola)])
+  if(cc == 1)mat=t(mat)
   sss=sum(mat[,5])
   l=matrix(nrow=nrow(mat),ncol=ncol(mat))
   for(i in 1:ncol(l)){
@@ -194,6 +243,7 @@ weightdisc = function(mat){
 
 
 oddsdisc=function(mat){
+  if(nrow(mat) == 1)stop("Only one strata matched in data, cannot display odds before and after startification.")
 
 cola=ncol(mat)
 colb=ncol(mat)-7
@@ -321,18 +371,29 @@ q=c(1:w)
 w=length(f)
 q[(1:w)]=f
 colnames(gg)=q
-gg=clean(gg)
-return(gg)
+tt=try(clean(gg),TRUE)
+if(class(tt) == "try-error") {
+  return(gg)
+}
+else {
+  return(tt)
+}
 }
 
 
 
 
 weightcont=function(Matrix){
+  if(nrow(Matrix) == 1)message("Only one strata matched in data, adjusted regression coefficient may be meaningless in this case.")
+  cc=0
+  if(nrow(Matrix) == 1)cc=1
   resd=matrix(nrow=5)
   a=ncol(Matrix)-5
   b=ncol(Matrix)
   r=Matrix[,(a:b)]
+  if(cc == 1){
+    r=t(as.matrix(r))
+  }
   f=matrix(nrow=nrow(r))
   r=cbind(r,f)
   t=matrix(nrow=nrow(r),ncol=ncol(r))
@@ -348,12 +409,18 @@ weightcont=function(Matrix){
   r[,5]=r[,5]*r[,4]
   res=sum(r[,2])-sum(r[,5])
   a=r[,2]-r[,5]
-  f=t.test(a,mu=0)
+  f=try(t.test(a,mu=0),TRUE)
+  if(class(f) == "try-error") {
+    resd[4,1]=NA
+    resd[5,1]=NA
+  }
+  else {
+    resd[4,1]=f$conf.int[2]*nrow(Matrix)
+    resd[5,1]=f$conf.int[1]*nrow(Matrix)
+  }
   resd[1,1]=res
   resd[2,1]=as.numeric(f[3])
   resd[3,1]=round(sum(r[,1]),1)
-  resd[4,1]=f$conf.int[2]*resd[3,1]
-  resd[5,1]=f$conf.int[1]*resd[3,1]
   rownames(resd)=c("Average Of Cases - Average Of Controls" , "t-test p-value", "No. Of Cases Matched", "95% C.I Upper Bound", "95% C.I Lower Bound")
   return(resd)
 
@@ -361,6 +428,7 @@ weightcont=function(Matrix){
 
 
 oddscont=function(mat){
+  if(nrow(mat) == 1)stop("Only one strata matched in data, cannot display odds before and after startification.")
 
   cola=ncol(mat)
   colb=ncol(mat)-5
@@ -515,20 +583,21 @@ makeit=function(d){
   z=z-2
   h=z+1
   t=ddply(d,(1:z),nrow)
-  if(nrow(t) < 100){
+  pop=mean(as.numeric(t[,h]))
+  if(nrow(t) < 50 ){
     a=matrix(nrow=1,ncol=2)
     a[1,1]=1
     a[1,2]=nrow(t)
     return(a)
   }
   else {
-  m=trunc(nrow(t)/50) + 1
+  m=trunc(nrow(t)/20) + 1
   a=matrix(nrow=m,ncol=2)
   a[1,1]=1
-  a[1,2]=50
+  a[1,2]=20
   for(i in 2:nrow(a)){
-    a[i,1]=a[i-1,1]+50
-    a[i,2]=a[i-1,2]+50
+    a[i,1]=a[i-1,1]+20
+    a[i,2]=a[i-1,2]+20
   }
   c=nrow(a)
   a[c,2]=(nrow(t))
@@ -555,13 +624,21 @@ un3=function(a,d){
   z=ncol(d)
   z=z-2
   h=z+1
+  bb=nrow(d)
   tt=ddply(d,(1:z),nrow)
   gg=matrix(nrow=1,ncol=(z+6))
   for(i in 1:nrow(a)){
     rer=tt[(a[i,1]:a[i,2]),]
     ly=gerom(d,rer)
     gg=rbind(gg,ly)
+    ll=nrow(a)
+    c=i
+    if( c < ll){
+      rer=tt[(a[i+1,1]:a[ll,2]),]
+      z=ncol(d)-2
+      d=merge(d, rer[,(1:z)], all.y=TRUE)
 
+    }
   }
   gg=na.omit(gg)
   return(gg)
@@ -574,9 +651,14 @@ un3=function(a,d){
 
 
 clean=function(g){
+  if(nrow(g)==1) {
   r=ncol(g)-5
   r1=ncol(g)
-  f=as.matrix(g[,(r:r1)])
+    colnames(g)[(r:r1)]=c("Cases","Avg.","Sd(NA)","Controls","Avg.","Sd(NA)")
+    return(g)
+  }
+  else{
+    f=as.matrix(g[,(r:r1)])
   for(i in 1:nrow(f)){
     if(f[i,2] == "NaN")g[i,1]=NA
     if(f[i,5]=="NaN")g[i,5]=NA
@@ -584,6 +666,7 @@ clean=function(g){
   g=na.omit(g)
   colnames(g)[(r:r1)]=c("Cases","Avg.","Sd(NA)","Controls","Avg.","Sd(NA)")
   return(g)
+  }
 }
 
 
@@ -765,6 +848,165 @@ summarycont=function(mat){
   colnames(mat)=c(" No. Of Cases", "Weighted Average Response" , "No. Of Controls", "Weighted Average Response")
   mat=cbind(results,mat)
   return(mat)
+}
+
+
+sensdisc=function(Treatment,Outcome,Matrix){
+  if(ncol(Matrix) > 10)message("Sensitivity analysis may require some time, given the large number of covariates.")
+  if(nrow(Matrix) > 100000)message("Sensitivity analysis may require some time, given the large number of observations.")
+
+  if(ncol(Matrix) == 3)stop("Warning: Data matrix must contain at least 3 covariates and one outcome variable.")
+  check=as.matrix(unique(Matrix[,Outcome]))
+  if(nrow(check) > 2 & sum(check[,1]) != 1)stop("Warning: Output variable must be discrete for this function. For continuous outputs, please use stratacont().")
+  a=ncol(Matrix)-1
+  for(i in 1:a){
+    h=as.matrix(unique(Matrix[,i]))
+    if(nrow(h) > 5)message("We advise using input variables with at most 5 categories.")
+    if(nrow(h) > 5)dd=sprintf("Column %s contains more than 5 categories" , i)
+    if(nrow(h) > 5)message(dd)
+    if(nrow(h) == 1)message("One or more variables is constant. This may cause problems in stratification.")
+
+  }
+  Matrix=as.data.frame(Matrix)
+  l=as.data.frame(cbind(Matrix[,Treatment],Matrix[,Outcome]))
+  r=c(colnames(Matrix))
+  p=c(r[Treatment],r[Outcome])
+  colnames(l)=p
+  if(Treatment < Outcome){
+    Matrix=Matrix[,-Outcome]
+    Matrix=Matrix[,-Treatment]
+  }
+  if(Outcome < Treatment){
+    Matrix=Matrix[,-Treatment]
+    Matrix=Matrix[,-Outcome]
+  }
+  Matrix=cbind(Matrix,l)
+  for (i in 1:ncol(Matrix)){
+    if(colnames(Matrix)[1] == "V1")colnames(Matrix)[1]="Var1"
+  }
+  c=ncol(Matrix)-4
+  if(c == 0)stop("Data matrix only contains 3 covariates. For sensitivity analysis please use a matrix with at least 4 covariates.")
+  if(c != 0){
+    res2=matrix(nrow=1,ncol=3)
+    a=ncol(Matrix)
+    b=a-1
+    g=try(stratifydisc(b,a,Matrix),TRUE)
+    if(class(g) == "try-error")res2[1,2]=0
+
+    res2[1,1]="None"
+    ff=b+4
+    l=try(weightdisc(g),TRUE)
+    if ( class(l) == "try-error" )res2[1,3]=0
+    if ( class(l) != "try-error" )res2[1,3]=log(l[1,1])
+
+
+    if(class(g) != "try-error")res2[1,2]=sum(as.numeric(g[,ff]))
+
+    message("Sensitivity analysis in progress.")
+
+    res=matrix(nrow=c,ncol=3)
+    for(i in 1:c){
+      nam=colnames(Matrix)[1]
+      Matrix=Matrix[,-1]
+      a=ncol(Matrix)
+      b=a-1
+      ff=b+4
+      g=try(stratifydisc(b,a,Matrix),TRUE)
+      if(class(g) == "try-error")bb=0
+      if(class(g) != "try-error")bb=sum(as.numeric(g[,ff]))
+      l=try(weightdisc(g),TRUE)
+      if(class(l) == "try-error")res[i,3]=0
+
+
+      res[i,2]=bb
+      if(class(l) != "try-error")res[i,3]=log(l[1,1])
+      res[i,1]=nam
+      message("Another variable has been dropped, sensitivity analysis in progress.")
+    }
+    res=rbind(res2,res)
+    colnames(res)=c("Variable Dropped" , "Number of Cases Matched" , "Adjusted Odds")
+    message("Sensitivity analysis complete.")
+    return(res)}
+}
+
+
+
+
+
+senscont=function(Treatment,Outcome,Matrix){
+  if(ncol(Matrix) > 10)message("Sensitivity analysis may require some time, given the large number of covariates.")
+  if(nrow(Matrix) > 100000)message("Sensitivity analysis may require some time, given the large number of observations.")
+
+  if(ncol(Matrix) == 3)stop("Warning: Data matrix must contain at least 3 covariates and one outcome variable.")
+  check=as.matrix(unique(Matrix[,Outcome]))
+  if(nrow(check) <= 2 )stop("Warning: Output variable must be continuous for this function. For discrete outputs, please use stratadisc().")
+  a=ncol(Matrix)-1
+  for(i in 1:a){
+    h=as.matrix(unique(Matrix[,i]))
+    if(nrow(h) > 5)message("We advise using input variables with at most 5 categories.")
+    if(nrow(h) > 5)dd=sprintf("Column %s contains more than 5 categories" , i)
+    if(nrow(h) > 5)message(dd)
+    if(nrow(h) == 1)message("One or more variables is constant. This may cause problems in stratification.")
+
+  }
+  Matrix=as.data.frame(Matrix)
+  l=as.data.frame(cbind(Matrix[,Treatment],Matrix[,Outcome]))
+  r=c(colnames(Matrix))
+  p=c(r[Treatment],r[Outcome])
+  colnames(l)=p
+  if(Treatment < Outcome){
+    Matrix=Matrix[,-Outcome]
+    Matrix=Matrix[,-Treatment]
+  }
+  if(Outcome < Treatment){
+    Matrix=Matrix[,-Treatment]
+    Matrix=Matrix[,-Outcome]
+  }
+  Matrix=cbind(Matrix,l)
+  for (i in 1:ncol(Matrix)){
+    if(colnames(Matrix)[1] == "V1")colnames(Matrix)[1]="Var1"
+  }
+  c=ncol(Matrix)-4
+  if(c == 0)stop("Data matrix only contains 3 covariates. For sensitivity analysis please use a matrix with at least 4 covariates.")
+  if(c != 0){
+    res2=matrix(nrow=1,ncol=3)
+    a=ncol(Matrix)
+    b=a-1
+    ff=b
+    g=try(stratifycont(b,a,Matrix),TRUE)
+    if ( class(g) == "try-error" )res2[1,2]=0
+    if ( class(g) != "try-error" )res2[1,2]=sum(as.numeric(g[,ff]))
+    res2[1,1]="None"
+
+    l=try(weightcont(g),TRUE)
+    if ( class(l) == "try-error" )res2[1,3]=0
+    if ( class(l) != "try-error" )res2[1,3]=(l[1,1])
+
+    message("Sensitivity analysis in progress.")
+
+    res=matrix(nrow=c,ncol=3)
+    for(i in 1:c){
+      nam=colnames(Matrix)[1]
+      Matrix=Matrix[,-1]
+      a=ncol(Matrix)
+      b=a-1
+      ff=b
+      g=try(stratifycont(b,a,Matrix),TRUE)
+      if(class(g) == "try-error")bb=0
+      if(class(g) != "try-error")bb=sum(as.numeric(g[,ff]))
+      l=try(weightcont(g),TRUE)
+      if ( class(l) == "try-error")res[i,3]=0
+      if ( class(l) != "try-error")res[i,3]=l[1,1]
+
+      res[i,2]=bb
+
+      res[i,1]=nam
+      message("Another variable has been dropped, sensitivity analysis in progress.")
+    }
+    res=rbind(res2,res)
+    colnames(res)=c("Variable Dropped" , "Number of Cases Matched" , "Avg.Cases - Avg. Controls")
+    message("Sensitivity analysis complete.")
+    return(res)}
 }
 
 

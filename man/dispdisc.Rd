@@ -6,8 +6,7 @@
 }
 \description{
 %%  ~~ A concise (1-5 lines) description of what the function does. ~~
-Function for internal use please refer to functions stratadisc() and stratacont().
-}
+Function for internal use please refer to functions stratadisc(), stratacont() , sensdisc() and senscont().}
 \usage{
 dispdisc(mat)
 }
