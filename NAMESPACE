@@ -1,7 +1,8 @@
 exportPattern("^[[:alpha:]]+")
+importFrom("graphics", "axis", "box", "legend", "mtext", "par", "plot")
+importFrom("stats", "binomial", "glm", "na.omit", "pchisq", "pnorm",
+             "t.test")
+importFrom("plyr", "ddply")
 
 
-  importFrom("graphics", "axis", "box", "legend", "mtext", "par", "plot")
-  importFrom("stats", "na.omit", "pchisq", "pnorm", "pt", "t.test")
 
-  import("plyr")
